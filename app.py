@@ -40,6 +40,20 @@ def _cash_mask(df: pd.DataFrame) -> pd.Series:
     )
 
 
+def _ticker_mask(df: pd.DataFrame, ticker: str) -> pd.Series:
+    tickers = df["ticker"].fillna("").astype(str)
+    return tickers.str.upper().eq(ticker.upper())
+
+
+def _position_mask(df: pd.DataFrame, hide_cash: bool, hide_agpxx: bool) -> pd.Series:
+    mask = pd.Series(False, index=df.index)
+    if hide_cash:
+        mask |= _cash_mask(df)
+    if hide_agpxx:
+        mask |= _ticker_mask(df, "AGPXX")
+    return mask
+
+
 def _totals_from_combined(df: pd.DataFrame, prefix: str) -> dict[str, float | int]:
     market_value_col = f"{prefix}_market_value"
     shares_col = f"{prefix}_shares"
@@ -260,6 +274,12 @@ def main() -> None:
         exclude_cash_from_totals = st.sidebar.toggle(
             "Exclude cash from totals", value=False
         )
+    hide_agpxx = st.sidebar.toggle("Hide AGPXX positions", value=False)
+    exclude_agpxx_from_totals = False
+    if hide_agpxx:
+        exclude_agpxx_from_totals = st.sidebar.toggle(
+            "Exclude AGPXX from totals", value=False
+        )
 
     st.sidebar.markdown("---")
     st.sidebar.caption("Source: Amplify holdings feed.")
@@ -274,21 +294,46 @@ def main() -> None:
     removed = removed_raw
     changed = changed_raw
     combined = combined_raw
-    if hide_cash:
-        added = added_raw[~_cash_mask(added_raw)].copy()
-        removed = removed_raw[~_cash_mask(removed_raw)].copy()
-        changed = changed_raw[~_cash_mask(changed_raw)].copy()
-        combined = combined_raw[~_cash_mask(combined_raw)].copy()
+    if hide_cash or hide_agpxx:
+        added = added_raw[
+            ~_position_mask(added_raw, hide_cash, hide_agpxx)
+        ].copy()
+        removed = removed_raw[
+            ~_position_mask(removed_raw, hide_cash, hide_agpxx)
+        ].copy()
+        changed = changed_raw[
+            ~_position_mask(changed_raw, hide_cash, hide_agpxx)
+        ].copy()
+        combined = combined_raw[
+            ~_position_mask(combined_raw, hide_cash, hide_agpxx)
+        ].copy()
 
     baseline_totals = get_totals_for_date(baseline_date, DB_PATH)
     comparison_totals = get_totals_for_date(comparison_date, DB_PATH)
-    if hide_cash and exclude_cash_from_totals:
-        baseline_totals = _totals_from_combined(combined, "start")
-        comparison_totals = _totals_from_combined(combined, "end")
+    exclude_for_totals = exclude_cash_from_totals or exclude_agpxx_from_totals
+    if exclude_for_totals:
+        combined_for_totals = combined_raw[
+            ~_position_mask(
+                combined_raw, exclude_cash_from_totals, exclude_agpxx_from_totals
+            )
+        ].copy()
+        baseline_totals = _totals_from_combined(combined_for_totals, "start")
+        comparison_totals = _totals_from_combined(combined_for_totals, "end")
 
     added_for_counts = added
     removed_for_counts = removed
-    if not (hide_cash and exclude_cash_from_totals):
+    if exclude_for_totals:
+        added_for_counts = added_raw[
+            ~_position_mask(
+                added_raw, exclude_cash_from_totals, exclude_agpxx_from_totals
+            )
+        ].copy()
+        removed_for_counts = removed_raw[
+            ~_position_mask(
+                removed_raw, exclude_cash_from_totals, exclude_agpxx_from_totals
+            )
+        ].copy()
+    else:
         added_for_counts = added_raw
         removed_for_counts = removed_raw
 
