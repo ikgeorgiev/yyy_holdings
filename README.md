@@ -1,6 +1,7 @@
 # YYY Holdings Tracker
 
 [![Daily holdings fetch](https://github.com/ikgeorgiev/yyy_holdings/actions/workflows/daily_fetch.yml/badge.svg)](https://github.com/ikgeorgiev/yyy_holdings/actions/workflows/daily_fetch.yml)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/streamlit-app-FF4B4B?logo=streamlit&logoColor=white)
 
